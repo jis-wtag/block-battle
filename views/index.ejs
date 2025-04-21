@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Grid Clash</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<h1>🎮 Welcome to Block Battle!</h1>
+
+<form action="/create-room" method="POST">
+    <input type="text" name="roomId" placeholder="Room name" required />
+    <button type="submit">Create Room</button>
+</form>
+
+<h2>Available Rooms:</h2>
+<ul id="room-list">
+    <% for (const [id, room] of Object.entries(rooms)) { %>
+        <li>
+            <strong><%= id %></strong> — <%= room.players.length %>/3 players
+            <% if (room.players.length === 0 || room.gameOver) { %>
+                <form action="/delete-room" method="POST" style="display:inline;">
+                    <input type="hidden" name="roomId" value="<%= id %>">
+                    <button type="submit" onclick="return confirm('Delete this room?')">❌</button>
+                </form>
+            <% } else { %>
+                <button disabled style="opacity: 0.5;">In Use</button>
+            <% } %>
+
+
+        <% if (room.players.length < 3) { %>
+                <form action="/rooms/<%= id %>" method="GET" style="display:inline;">
+                    <button type="submit">Join Room</button>
+                </form>
+            <% } else { %>
+                <button disabled style="opacity: 0.5;">Room Full</button>
+            <% } %>
+        </li>
+    <% } %>
+</ul>
+
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
+
+  socket.on('roomListUpdate', rooms => {
+    const roomList = document.getElementById('room-list');
+    roomList.innerHTML = '';
+    for (const id in rooms) {
+      const room = rooms[id];
+      const isFull = room.players.length >= 3;
+      const canDelete = room.players.length === 0 || room.gameOver;
+
+      const li = document.createElement('li');
+
+      let innerHTML = `<strong>${id}</strong> — ${room.players.length}/3 players `;
+
+      // Delete Button (if allowed)
+      if (canDelete) {
+        innerHTML += `
+        <form action="/delete-room" method="POST" style="display:inline;">
+          <input type="hidden" name="roomId" value="${id}">
+          <button type="submit" onclick="return confirm('Delete this room?')">❌</button>
+        </form>
+      `;
+      } else {
+        innerHTML += `<button disabled style="opacity: 0.5;">In Use</button>`;
+      }
+
+      // Join Button (if not full)
+      if (!isFull) {
+        innerHTML += `
+        <form action="/rooms/${id}" method="GET" style="display:inline;">
+          <button type="submit">Join Room</button>
+        </form>
+      `;
+      } else {
+        innerHTML += `<button disabled style="opacity: 0.5;">Room Full</button>`;
+      }
+
+      li.innerHTML = innerHTML;
+      roomList.appendChild(li);
+    }
+  });
+</script>
+</body>
+</html>

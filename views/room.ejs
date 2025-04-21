@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Block battle – Room: <%= roomId %></title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<h1>Room: <%= roomId %></h1>
+
+<!-- Player name form -->
+<div id="name-form">
+    <form id="joinForm">
+        <input type="text" id="playerName" placeholder="Enter your name" required/>
+        <button type="submit">Join Game</button>
+    </form>
+</div>
+
+<!-- Game area -->
+<div id="game-area" style="display: none;">
+    <h2 id="welcome"></h2>
+    <div id="grid" style="display: grid; grid-template-columns: repeat(6, 50px); gap: 5px;"></div>
+    <h3 id="status"></h3>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
+  const roomId = "<%= roomId %>";
+
+  const nameForm = document.getElementById("joinForm");
+  const gameArea = document.getElementById("game-area");
+  const gridEl = document.getElementById("grid");
+  const welcomeText = document.getElementById("welcome");
+  const statusText = document.getElementById("status");
+
+  let playerName = "";
+  let playerColor = "";
+  let isGameOver = false;
+
+  // Create 6x6 grid
+  for (let i = 0; i < 36; i++) {
+    const cell = document.createElement("div");
+    cell.className = "cell";
+    cell.dataset.index = i;
+    cell.style.width = "50px";
+    cell.style.height = "50px";
+    cell.style.border = "1px solid #aaa";
+    cell.style.background = "#fff";
+    cell.style.cursor = "pointer";
+    gridEl.appendChild(cell);
+
+    cell.addEventListener("click", () => {
+      console.log(`cell clicked with playercolor: ${playerColor} and game over ${isGameOver} also room ${roomId}`);
+      if (!playerColor || isGameOver) return;
+      try {
+        socket.emit("claim-cell", { roomId, index: i, playerColor });
+      } catch (err) {
+        console.log("Error emitting claim-cell:", err);
+      }
+    });
+  }
+
+  // Join form submit
+  nameForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    playerName = document.getElementById("playerName").value.trim();
+    if (playerName) {
+      socket.emit("join-room", { roomId, playerName });
+    }
+  });
+
+  // When joined successfully
+  socket.on("joined", ({ color, players }) => {
+    playerColor = color;
+    welcomeText.textContent = `Hello ${playerName}! You're playing as ${color}`;
+    gameArea.style.display = "block";
+    document.getElementById("name-form").style.display = "none";
+  });
+
+  // Update grid for all players
+  socket.on("update-grid", ({ grid }) => {
+    const cells = gridEl.children;
+    for (let i = 0; i < grid.length; i++) {
+      cells[i].style.background = grid[i] || "#fff";
+      cells[i].style.cursor = grid[i] ? "not-allowed" : "pointer";
+    }
+  });
+
+  // Game over message
+  socket.on("game-over", (winnerName) => {
+    setTimeout(() => {
+      alert(`🎉 Game Over! ${winnerName} wins!`);
+      isGameOver = true;
+    }, 100); // slight delay to ensure UI is updated
+  });
+</script>
+</body>
+</html>
